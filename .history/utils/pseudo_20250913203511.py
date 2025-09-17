@@ -15,15 +15,30 @@ def rgb2gray(rgb):
   return np.dot(rgb[...,:3], [0.299, 0.587, 0.114])
 
 def display_frequency_spectrum(img):
-
+    # 计算二维傅里叶变换
     xf = np.fft.fft2(img)
-    xfshift = np.fft.fftshift(xf)
-    fimg = np.log1p(np.abs(xfshift))  
     
+    # 将零频率部分移到图像的中心
+    xfshift = np.fft.fftshift(xf)
+    
+    # 计算幅度谱并进行对数变换
+    fimg = np.log1p(np.abs(xfshift))  # 使用 log1p 避免负无限大的问题
+    
+    # 归一化到 [0, 1] 范围
     fimg_normalized = np.log1p(np.abs(xfshift))
     fimg_normalized = (fimg_normalized - np.min(fimg_normalized)) / (np.max(fimg_normalized) - np.min(fimg_normalized))
     
     return fimg_normalized;
+    # 绘制频谱图
+    # plt.figure(figsize=(8, 6))
+    # plt.imshow(fimg_normalized, cmap='plasma')
+    # plt.title("Frequency Spectrum (Log Scale)", fontsize=16)
+    # plt.xlabel("Frequency (x)", fontsize=12)
+    # plt.ylabel("Frequency (y)", fontsize=12)
+    # plt.colorbar(label='Log Magnitude')
+    # plt.axis('off')  # 隐藏坐标轴
+    # plt.show()
+    
     return fimg_normalized
 def spectrum_show(img):
     xf = np.fft.fft2(img)

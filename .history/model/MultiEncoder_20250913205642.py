@@ -11,6 +11,7 @@ from csbdeep.models import BaseConfig, BaseModel
 
 def _MultiEncoder(input_shape, output_size, kernel_size, padding, num_inputs=3):
     
+    # 定义 resnet block
     def resnet_block(n_filters, kernel_size=kernel_size, batch_norm=True, downsample=False,
                      kernel_initializer="he_normal"):
         def f(inp):
@@ -36,7 +37,8 @@ def _MultiEncoder(input_shape, output_size, kernel_size, padding, num_inputs=3):
             return x
 
         return f
-
+    
+    # 定义 biasEncoder
     def biasEncoder(inputs, stream_index, depth=4):
         n_filters = 16
         x = Conv2D(4, name=f'x{stream_index}conv1', kernel_size=(7, 7), padding=padding)(inputs)
@@ -55,14 +57,16 @@ def _MultiEncoder(input_shape, output_size, kernel_size, padding, num_inputs=3):
         x = PReLU()(x)
 
         return x
-
+    
+    # 创建动态数量的输入
     inputs = [Input(input_shape[i], name=f'X{i+1}') for i in range(num_inputs)]
 
-
+    # 处理每个输入流
     streams = []
     for i, inp in enumerate(inputs):
         streams.append(biasEncoder(inp, stream_index=i+1))
-
+    
+    # 对所有输入流的特征进行加权处理并合并
     weighted_streams = [Lambda(lambda x: x)(stream) for stream in streams]
 
     conct = concatenate(weighted_streams)
@@ -70,6 +74,7 @@ def _MultiEncoder(input_shape, output_size, kernel_size, padding, num_inputs=3):
     conct = BatchNormalization()(conct)
     conct = PReLU()(conct)
 
+    # 继续处理合并后的特征
     n5 = 64*num_inputs
     depth5 = 1
     for i in range(depth5):
@@ -82,5 +87,6 @@ def _MultiEncoder(input_shape, output_size, kernel_size, padding, num_inputs=3):
     
     output = Dense(output_size, name='Y')(d1)
 
+    # 创建模型
     model = Model(inputs=inputs, outputs=output)
     return model
