@@ -29,7 +29,7 @@ dataFile = '../DataSet/Demo3//'
 c = Config(zernike_amplitude_ranges=amps,modulate_aber=modulationAber,
            isMultiStream = len(modulationAber),isRealTime = True,
            psf_na_detection=1.05, psf_units=(0.1,0.086,0.086), psf_n=1.33, psf_lam_detection=0.920,
-           dataFile = dataFile, isRegular = isRegular, regularValue = regularValue)
+           dataFile = dataFile, isRegular = isRegular, regularValue = regularValue,NoiseIs=False,noise_Q=10000,noise_sigma=1000)
 #vars(c)
 
 data_kwargs = dict (
