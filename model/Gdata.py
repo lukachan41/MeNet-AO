@@ -94,10 +94,11 @@ class Data:
             if self.isRealTime:
                 amplitudes,amps_noll = zip(*(self._single_psf() for _ in range(self.batch_size)))
                 amps_noll = list(amps_noll) 
-                # amps_noll = add_random_high_order_disturbances(amps_noll,65)
-                # print('High order disturbation')
+                amps_noll = add_random_high_order_disturbances(amps_noll,65)
                 PseudoData = PseudoGenerator(psfgen=self.psfgen,amplitudes=amps_noll,
-                                             modulate_aber=self.modulate_aber,isMultiStream=self.isMultiStream)
+                                             modulate_aber=self.modulate_aber,isMultiStream=self.isMultiStream,
+                                             regularValue=self.regularValue,isRegular=self.isRegular,
+                                             NoiseIs=self.NoiseIs,noise_Q=self.noise_Q,noise_sigma=self.noise_sigma)
                 X = PseudoData.generate_data()  # (num,2,32,32,1)
                 Y = np.stack(amplitudes, axis=0) 
                 data_dict = {}
