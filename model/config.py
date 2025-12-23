@@ -24,6 +24,8 @@ class Config(BaseConfig):
         self.psf_lam_detection         = 0.5
         self.psf_n                     = 1.33
         self.NoiseIs                   = False
+        self.noise_Q                   = 10000
+        self.noise_sigma               = 1000
 
 
         self.train_loss                = 'mse'
