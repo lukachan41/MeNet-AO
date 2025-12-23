@@ -102,16 +102,25 @@ class MeNet(BaseModel):
         x = Conv2D(16,name='x1conv2', kernel_size=(5,5),padding=padding,)(x)
         x = BatchNormalization()(x)
         x = PReLU()(x)
+ 
         n = 16
-
+            
         depth = 5
+        extra_blocks = [0, 0, 0, 0, 1,1]
         for i in range(depth):
             x = resnet_block(n * (2 ** i), downsample=(i > 0))(x)
             x = resnet_block(n * (2 ** i))(x)
-        # x = Dropout(0.4)(x)
+            # for _ in range(extra_blocks[i]):            # 追加的普通 block
+            #     x = resnet_block(n * (2 ** i))(x)
+        x = resnet_block(256)(x)
+        x = Conv2D(192,name='x1conv3', kernel_size=(3,3),padding=padding,)(x)
+        x = BatchNormalization()(x)
+        x = PReLU()(x)
+        
         x = GlobalAveragePooling2D()(x)
-        x = Dense(32, name='dense1')(x)
-        # x = Dropout(0.4)(x)
+        # x = Dense(32, name='dense1')(x)
+        x = Dense(192, name='dense1')(x)
+        x = PReLU()(x)
         oup = Dense(output_size, name='Y')(x)
 
         return Model(inp, oup)
