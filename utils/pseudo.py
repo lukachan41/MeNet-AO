@@ -19,11 +19,11 @@ def display_frequency_spectrum(img):
     xf = np.fft.fft2(img)
     xfshift = np.fft.fftshift(xf)
     fimg = np.log1p(np.abs(xfshift))  
-    
     fimg_normalized = np.log1p(np.abs(xfshift))
     fimg_normalized = (fimg_normalized - np.min(fimg_normalized)) / (np.max(fimg_normalized) - np.min(fimg_normalized))
     
     return fimg_normalized;
+    
     return fimg_normalized
 def spectrum_show(img):
     xf = np.fft.fft2(img)
@@ -65,13 +65,37 @@ def extract_center(img,edge=16):
     w = img.shape[1]
     crop_psf = img[int(l/2-edge):int(l/2+edge),int(w/2-edge):int(w/2+edge)]
     return crop_psf
+def extract_center_withShift(img, edge=16, *, use_abs=True, pad_mode='reflect', return_center=False):
+
+    arr = np.asarray(img)
+    if arr.ndim < 2:
+        raise ValueError("img must be 2D (H, W[,...])")
+    if arr.ndim == 2:
+        base = np.abs(arr) if use_abs else arr
+    else:
+        chwise = np.abs(arr) if use_abs else arr
+        base = chwise.mean(axis=-1) 
+
+    signal = base.astype(float)
+    signal[np.isnan(signal)] = -np.inf
+    r, c = np.unravel_index(signal.argmax(), signal.shape)
+
+    pad_width = [(edge, edge), (edge, edge)] + [(0, 0)] * (arr.ndim - 2)
+    arr_p = np.pad(arr, pad_width, mode=pad_mode)
+    rp, cp = r + edge, c + edge
+    crop = arr_p[rp - edge: rp + edge, cp - edge: cp + edge, ...]
+
+    if return_center:
+        return crop, (r, c)
+    return crop
 
 class PseudoGenerator:
     """
     Pseudo-psf generator
     """
     def __init__(self, psfgen=None,amplitudes=None, modulate_aber=None,isMultiStream = None,
-                 img_file_path='../Data/img/',isRegular = True, regularValue = 1e2):
+                 img_file_path='../Data/img/',isRegular = True, regularValue = 1e2,
+                 NoiseIs = False, noise_Q = 10000,noise_sigma = 1000):
 
         self.psfgen = psfgen
         self.amplitudes = amplitudes
@@ -80,6 +104,9 @@ class PseudoGenerator:
         self.isMultiStream = isMultiStream
         self.isRegular = isRegular
         self.regularValue = regularValue
+        self.NoiseIs = NoiseIs
+        self.noise_Q = noise_Q
+        self.noise_sigma = noise_sigma
 
     def obtain_img(self):
         img_path = self.img_file_path
@@ -139,19 +166,31 @@ class PseudoGenerator:
                 img_positive = (img_positive-np.min(img_positive))/(np.max(img_positive)-np.min(img_positive))
                 img_negative = (img_negative-np.min(img_negative))/(np.max(img_negative)-np.min(img_negative))
                 
+                # Noise modeling
+                rng = np.random.default_rng(0)
+                def mpg_sample(mean_dn, Q, sigma, n=16):
+                    max_dn = (2**n - 1)
+                    mean_dn = mean_dn * max_dn
+                    lam = (Q / max_dn) * np.clip(mean_dn, 0, max_dn)
+                    k = rng.poisson(lam=lam)
+                    dn = (max_dn / Q) * k + rng.normal(0, sigma, mean_dn.shape)
+                    return np.clip(dn, 0, max_dn)
+                if self.NoiseIs:
+                    Q0 = self.noise_Q
+                    sigma0 = self.noise_sigma
+                    img_positive = mpg_sample(img_positive,Q=Q0,sigma=sigma0)
+                    img_negative = mpg_sample(img_negative,Q=Q0,sigma=sigma0)
                 
-                img_positive = add_poisson_gaussian_noise_np(img_positive)
-                img_negative = add_poisson_gaussian_noise_np(img_negative)
                 
                 img_positive = (img_positive-np.min(img_positive))/(np.max(img_positive)-np.min(img_positive))
                 img_negative = (img_negative-np.min(img_negative))/(np.max(img_negative)-np.min(img_negative))
                 
                 if self.isRegular:
-                    Pseudo_12 = extract_center(Pseudo_fft(img_positive,img_negative))
-                    Pseudo_21 = extract_center(Pseudo_fft(img_negative,img_positive))
+                    Pseudo_12 = extract_center_withShift(Pseudo_fft(img_positive,img_negative))
+                    Pseudo_21 = extract_center_withShift(Pseudo_fft(img_negative,img_positive))
                 else:
-                    Pseudo_12 = extract_center(pseudo_ffttest_tikhonov(img_positive,img_negative,alpha=self.regularValue))
-                    Pseudo_21 = extract_center(pseudo_ffttest_tikhonov(img_negative,img_positive,alpha=self.regularValue))
+                    Pseudo_12 = extract_center_withShift(pseudo_ffttest_tikhonov(img_positive,img_negative,alpha=self.regularValue))
+                    Pseudo_21 = extract_center_withShift(pseudo_ffttest_tikhonov(img_negative,img_positive,alpha=self.regularValue))
 
                 Pseudo_tmp = np.stack([Pseudo_12,Pseudo_21],axis=-1)
             
